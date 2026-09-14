@@ -1,0 +1,122 @@
+name: Build Madeira IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          brew install meson ninja cmake autoconf automake pkg-config p7zip
+
+      - name: Download Metal Toolchain
+        run: |
+          xcodebuild -downloadComponent MetalToolchain
+
+      - name: Verify Madeira
+        run: |
+          test -f app/Madeira.xcodeproj/project.pbxproj
+          test -f build/dxmt-ios/build.sh
+          test -f build/gnutls-ios/build.sh
+          test -f build/freetype-ios/build.sh
+
+      - name: Prepare toolchains
+        run: |
+          mkdir -p toolchains
+
+          curl -L --fail --retry 3 \
+            -o /tmp/llvm-mingw.tar.xz \
+            https://github.com/mstorsjo/llvm-mingw/releases/download/20260421/llvm-mingw-20260421-ucrt-macos-universal.tar.xz
+
+          tar -xf /tmp/llvm-mingw.tar.xz -C toolchains
+
+      - name: Prepare FreeType
+        run: |
+          git clone --depth 1 \
+            --branch VER-2-13-3 \
+            https://github.com/freetype/freetype.git \
+            research/freetype
+
+      - name: Prepare DXMT
+        run: |
+          rm -f research/dxmt/toolchains
+          ln -s ../../toolchains research/dxmt/toolchains
+          git -C research/dxmt submodule update --init --recursive
+
+      - name: Build GnuTLS
+        run: |
+          chmod +x build/gnutls-ios/build.sh
+          build/gnutls-ios/build.sh
+
+      - name: Build FreeType
+        run: |
+          chmod +x build/freetype-ios/build.sh
+          build/freetype-ios/build.sh
+
+      - name: Build Wine server
+        run: |
+          chmod +x build/wineserver/build.sh
+          build/wineserver/build.sh
+
+      - name: Build NTDLL
+        run: |
+          chmod +x build/ntdll-unix/build.sh
+          build/ntdll-unix/build.sh
+
+      - name: Build Win32U
+        run: |
+          chmod +x build/win32u-unix/build.sh
+          build/win32u-unix/build.sh
+
+      - name: Build DXMT
+        run: |
+          chmod +x build/dxmt-ios/build.sh
+          build/dxmt-ios/build.sh
+
+      - name: Build iOS application
+        run: |
+          xcodebuild \
+            -project app/Madeira.xcodeproj \
+            -scheme Madeira \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package IPA
+        run: |
+          set -e
+
+          APP="build/DerivedData/Build/Products/Release-iphoneos/Madeira.app"
+
+          test -d "$APP"
+
+          rm -rf Payload Madeira-unsigned.ipa
+          mkdir Payload
+
+          cp -R "$APP" Payload/Madeira.app
+
+          zip -qry Madeira-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Madeira-unsigned-IPA
+          path: Madeira-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
