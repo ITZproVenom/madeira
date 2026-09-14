@@ -56,6 +56,17 @@ jobs:
           ln -s ../../toolchains research/dxmt/toolchains
           git -C research/dxmt submodule update --init --recursive
 
+      - name: Prepare Wine submodule
+        run: |
+          git -C research/wine submodule update --init --recursive
+
+      - name: Build Wine server
+        run: |
+          cd research/wine
+          ./configure --without-x --without-opengl --disable-win16 --disable-tests
+          make -C server libs/wineserver || make -C server wineserver
+          cd - || true
+
       - name: Build GnuTLS
         run: |
           chmod +x build/gnutls-ios/build.sh
@@ -66,7 +77,7 @@ jobs:
           chmod +x build/freetype-ios/build.sh
           build/freetype-ios/build.sh
 
-      - name: Build Wine server
+      - name: Build Wine server wrapper
         run: |
           chmod +x build/wineserver/build.sh
           build/wineserver/build.sh
