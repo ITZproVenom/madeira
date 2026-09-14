@@ -58,11 +58,11 @@ jobs:
 
       - name: Prepare Wine submodule
         run: |
-          git -C research/wine submodule update --init --recursive
+          git -C wine submodule update --init --recursive
 
       - name: Build Wine server
         run: |
-          cd research/wine
+          cd wine
           ./configure --without-x --without-opengl --disable-win16 --disable-tests
           make -C server libs/wineserver || make -C server wineserver
           cd - || true
