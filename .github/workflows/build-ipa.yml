@@ -45,6 +45,7 @@ jobs:
           key: madeira-ipa-v1-${{ github.sha }}
           restore-keys: |
             madeira-ipa-v1-
+          save-always: true
 
       - name: Run build script
         run: |
