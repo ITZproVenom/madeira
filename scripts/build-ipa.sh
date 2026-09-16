@@ -72,16 +72,15 @@ stage_llvm() {
     curl -fL --retry 3 -o "$LOG_DIR/llvm-15.tar.gz" \
         "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-15.0.7.tar.gz"
     tar -xzf "$LOG_DIR/llvm-15.tar.gz" -C toolchains/
-    mv "toolchains/llvm-project-15.0.7" "$LLVM_PROJECT"
+    mv "$(ls -d toolchains/llvm-project-* | head -1)" "$LLVM_PROJECT"
 
     # Apple ld only accepts -dead_strip; iOS registers as "iOS" not "Darwin",
     # so widen the match or the LLVM libs get linked with --gc-sections.
-    sed -i 's/CMAKE_SYSTEM_NAME} MATCHES "Darwin"/CMAKE_SYSTEM_NAME} MATCHES "Darwin|iOS"/g' \
+    sed -i '' 's/CMAKE_SYSTEM_NAME} MATCHES "Darwin"/CMAKE_SYSTEM_NAME} MATCHES "Darwin|iOS"/g' \
         "$LLVM_PROJECT/llvm/cmake/modules/AddLLVM.cmake"
 
     cmake -S "$LLVM_PROJECT/llvm" -B toolchains/llvm-host-build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
-        -DLLVM_TARGETS_TO_BUILD=host \
         -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_UTILS=OFF \
         -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF
     cmake --build toolchains/llvm-host-build --target llvm-tblgen -j "$JOBS"
@@ -95,7 +94,7 @@ stage_llvm() {
         -DCMAKE_CXX_COMPILER="$(xcrun -f clang++)" \
         -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
         -DLLVM_TABLEGEN="$REPO_ROOT/toolchains/llvm-host-build/bin/llvm-tblgen" \
-        -DLLVM_TARGETS_TO_BUILD="" \
+        -DLLVM_TARGETS_TO_BUILD="AArch64;ARM" \
         -DLLVM_BUILD_TOOLS=OFF -DLLVM_BUILD_UTILS=OFF \
         -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF \
         -DLLVM_ENABLE_ZLIB=OFF -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_ENABLE_FFI=OFF
