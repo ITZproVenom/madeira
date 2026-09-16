@@ -126,3 +126,9 @@ research/remote-metal/guest/rmreplay
 research/remote-metal/guest/rmres
 research/remote-metal/guest/rmclient_test
 research/remote-metal/host/rmetald
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
