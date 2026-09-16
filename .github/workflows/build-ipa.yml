@@ -34,6 +34,18 @@ jobs:
         run: |
           brew install llvm meson ninja bison flex pkgconf ccache cmake
 
+      - name: Cache heavy build dirs
+        uses: actions/cache@v4
+        with:
+          path: |
+            toolchains
+            build/gnutls-ios/obj
+            build/freetype-ios/build
+            wine/build-macos
+          key: madeira-ipa-v1-${{ github.sha }}
+          restore-keys: |
+            madeira-ipa-v1-
+
       - name: Run build script
         run: |
           chmod +x scripts/build-ipa.sh
