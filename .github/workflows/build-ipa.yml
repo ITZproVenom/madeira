@@ -1,0 +1,101 @@
+name: Build IPA & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (tag). Leave blank for YYYY.MM.DD-HHMM'
+        required: false
+        default: ''
+      prerelease:
+        description: 'Mark release as prerelease'
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    timeout-minutes: 360
+    concurrency: build-ipa-${{ github.ref }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          brew install llvm meson ninja bison flex pkgconf ccache cmake
+
+      - name: Run build script
+        run: |
+          chmod +x scripts/build-ipa.sh
+          bash scripts/build-ipa.sh all
+
+      - name: Determine release version
+        id: version
+        run: |
+          VER="${{ github.event.inputs.version }}"
+          if [ -z "$VER" ]; then
+            if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+              VER="${{ github.ref_name }}"
+            else
+              VER="v$(date +%Y.%m.%d-%H%M)"
+            fi
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          TAG=$(echo "$VER" | sed 's/^v//')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=${{ github.event.inputs.prerelease || 'true' }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload IPA artifact (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: build/logs/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload IPA artifact (final)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Madeira-${{ steps.version.outputs.version }}
+          path: |
+            dist/Madeira-${{ steps.version.outputs.version }}.ipa
+            dist/SHA256SUMS
+          retention-days: 90
+
+      - name: Create / update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          PRE="${{ steps.version.outputs.prerelease }}"
+          NOTES="Madeira IPA build — commit ${{ github.sha }}"
+          if [ "$PRE" = "true" ]; then
+            gh release create "$TAG" \
+              "dist/Madeira-$VER.ipa" "dist/SHA256SUMS" \
+              --title "Madeira $VER" \
+              --notes "$NOTES" \
+              --prerelease \
+              || gh release upload "$TAG" "dist/Madeira-$VER.ipa" "dist/SHA256SUMS" --clobber
+          else
+            gh release create "$TAG" \
+              "dist/Madeira-$VER.ipa" "dist/SHA256SUMS" \
+              --title "Madeira $VER" \
+              --notes "$NOTES" \
+              || gh release upload "$TAG" "dist/Madeira-$VER.ipa" "dist/SHA256SUMS" --clobber
+          fi
