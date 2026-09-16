@@ -15,15 +15,17 @@ JOBS="${JOBS:-$(sysctl -n hw.ncpu)}"
 LOG_DIR="$REPO_ROOT/build/logs"
 mkdir -p "$LOG_DIR"
 
-HOMEBREW_PREFIX="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
-export PATH="$HOMEBREW_PREFIX/opt/bison/bin:$PATH"
-export PATH="$HOMEBREW_PREFIX/opt/flex/bin:$PATH"
-export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"
-
-SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 LLVM_MINGW="toolchains/llvm-mingw-20260421-ucrt-macos-universal"
 LLVM_PROJECT="toolchains/llvm-project"
 LLVM_IOS="toolchains/llvm-ios-build"
+
+HOMEBREW_PREFIX="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
+export PATH="$REPO_ROOT/$LLVM_MINGW/bin:$PATH"
+export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"
+export PATH="$HOMEBREW_PREFIX/opt/flex/bin:$PATH"
+export PATH="$HOMEBREW_PREFIX/opt/bison/bin:$PATH"
+
+SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 
 log_tail() { # <logfile>
     if [ -f "$1" ]; then
@@ -159,7 +161,7 @@ stage_wine() {
     (
         cd wine/build-macos
         ../configure \
-            --without-mingw --without-x --without-freetype --without-vulkan \
+            --without-x --without-freetype --without-vulkan \
             --without-gstreamer --without-cups --without-oss --without-alsa \
             --without-gphoto --without-usb --without-v4l2 --without-opencl \
             --without-dbus --without-sane --without-gssapi --without-pulse \
